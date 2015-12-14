@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Timers;
 using UnityEngine;
 using WebSocketSharp;
 
@@ -110,7 +109,6 @@ namespace PhoenixChannels
         private void OnConnClose(object sender, CloseEventArgs e)
         {
             TriggerChanError();
-
             foreach (var callback in _closeCallbacks) callback(e);
         }
 
@@ -156,7 +154,7 @@ namespace PhoenixChannels
 
         public void Push(Envelope envelope)
         {
-            Action callback = () => _conn.Send(JsonUtility.ToJson(envelope.Payload));
+            Action callback = () => _conn.Send(JsonUtility.ToJson(envelope));
 
             if (IsConnected())
             {
@@ -178,13 +176,12 @@ namespace PhoenixChannels
 
         private void SendHeartbeat()
         {
-            var env = new Envelope()
-            {
-                Topic = "phoenix",
-                Event = "heartbeat",
-                Payload = new Payload(String.Empty),
-                Ref = MakeRef(),
-            };
+            var env = new Envelope();
+            env.topic = "phoenix";
+            env.@event = "heartbeat";
+            env.payload = new Payload(String.Empty);
+            env.@ref = MakeRef();
+
             Push(env);
         }
 
@@ -204,12 +201,12 @@ namespace PhoenixChannels
         {
             var env = JsonUtility.FromJson<Envelope>(e.Data);
 
-            foreach (var chan in System.Linq.Enumerable.ToList(_channels.Where((c) => c.IsMember(env.Topic))))
+            foreach (var chan in System.Linq.Enumerable.ToList(_channels.Where((c) => c.IsMember(env.topic))))
             {
-                chan.Trigger(env.Event, env.Payload, env.Ref);
+                chan.Trigger(env.@event, env.payload, env.@ref);
             }
 
-            foreach (var callback in _messageCallbacks) callback(env.Topic, env.Event, env.Payload);
+            foreach (var callback in _messageCallbacks) callback(env.topic, env.@event, env.payload);
         }
 
     }

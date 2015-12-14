@@ -9,7 +9,8 @@ public class Sample : MonoBehaviour
 
     void Start()
     {
-        Payload payload = new Payload("{name: name}");
+        Payload payload = new Payload(string.Empty);
+        payload.name = "name";
 
         socket.AddChannel("rooms:lobby", payload);
     }

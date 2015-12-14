@@ -62,14 +62,14 @@ namespace PhoenixChannels
             StartAfter();
             _sent = true;
 
-            var env = new Envelope()
-            {
-                Topic = _channel.Topic,
-                Event = _event,
-                Payload = _payload,
-                Ref = _ref,
-            };
+            var env = new Envelope();
+            env.topic = _channel.Topic;
+            env.@event = _event;
+            env.payload = _payload;
+            env.@ref = _ref;
 
+            Debug.Log("envelope : " + env.ToString());
+            Debug.Log("envelope(json) : " + JsonUtility.ToJson(env));
             _channel.Socket.Push(env);
         }
 
