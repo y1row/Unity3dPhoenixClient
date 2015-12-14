@@ -1,12 +1,12 @@
 ﻿using UnityEngine;
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Timers;
 
 namespace PhoenixChannels
 {
 
-    public class Channel
+    public class Channel : MonoBehaviour
     {
         public enum CHANNEL_STATE
         {
@@ -30,21 +30,18 @@ namespace PhoenixChannels
         bool _alreadyJoinedOnce;
         Push _joinPush;
         IList<Push> _pushBuffer;
-        Timer _rejoinTimer;
 
-        public string Topic { get; set; }
-        public Socket Socket { get; set; }
+        public string Topic;
+        public Payload Payload;
+        public Socket Socket;
 
-        public Channel(string topic, Payload params_, Socket socket)
+        void Start()
         {
             _state = CHANNEL_STATE.closed;
-            Topic = topic;
-
-            Socket = socket;
             _bindings = new Dictionary<string, List<Action<Payload, string>>>();
             _alreadyJoinedOnce = false;
 
-            _joinPush = new Push(this, GetEvent(CHANNEL_EVENT.join), params_);
+            _joinPush = new Push(this, GetEvent(CHANNEL_EVENT.join), Payload);
             _pushBuffer = new List<Push>();
 
             _joinPush.Receive("ok", (x) =>
@@ -61,7 +58,6 @@ namespace PhoenixChannels
             OnError((reason, reference) => //reason is not used
             {
                 _state = CHANNEL_STATE.errored;
-                _rejoinTimer.Start();
             });
 
             On(GetEvent(CHANNEL_EVENT.reply), (payload, reference) =>
@@ -69,24 +65,18 @@ namespace PhoenixChannels
                 Trigger(ReplyEventName(reference), payload, reference);
             });
 
-            _rejoinTimer = new Timer(Socket.ReconnectAfterMs);
-            _rejoinTimer.AutoReset = false;
-            _rejoinTimer.Elapsed += (o, e) => RejoinUntilConnected();
-            //_rejoinTimer.Enabled = true;
+            StartCoroutine(RejoinUntilConnected());
         }
 
-        private void RejoinUntilConnected()
+        IEnumerator RejoinUntilConnected()
         {
-            if (_state != CHANNEL_STATE.errored) return;
+            yield return new WaitForSeconds(Socket.ReconnectAfterMs / 1000);
 
             if (Socket.IsConnected())
             {
                 Rejoin();
             }
-            else
-            {
-                _rejoinTimer.Start();
-            }
+            StartCoroutine(RejoinUntilConnected());
         }
 
         public Push Join()

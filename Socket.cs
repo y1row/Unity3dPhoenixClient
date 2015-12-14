@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
@@ -17,10 +18,8 @@ namespace PhoenixChannels
         IList<Action> _sendBuffer;
         int _ref = 0;
         WebSocket _conn;
-        Timer _reconnectTimer;
-        Timer _heartbeatTimer;
 
-        public string EndPoint = "ws://localhost:4000/socket";
+        public string EndPoint = "ws://localhost:4000/socket/websocket";
         public int ReconnectAfterMs = 5000;
         public int HeartbeatIntervalMs = 30000;
 
@@ -34,21 +33,12 @@ namespace PhoenixChannels
             _channels = new List<Channel>();
             _sendBuffer = new List<Action>();
             _ref = 0;
-
-            _reconnectTimer = new Timer(ReconnectAfterMs);
-            _reconnectTimer.AutoReset = true;
-            //_reconnectTimer.Enabled = false;
-            _reconnectTimer.Elapsed += (o, e) => Connect();
-
-            _heartbeatTimer = new Timer(HeartbeatIntervalMs);
-            _heartbeatTimer.AutoReset = true;
-            //_heartbeatTimer.Enabled = true;
-            _heartbeatTimer.Elapsed += (o, e) => SendHeartbeat();
         }
 
         public void Start()
         {
             Connect();
+            StartCoroutine(Reconnect());
         }
 
         public void Connect()
@@ -62,6 +52,12 @@ namespace PhoenixChannels
                 _conn.OnClose += OnConnClose;
                 _conn.Connect();
             });
+        }
+
+        IEnumerator Reconnect()
+        {
+            yield return new WaitForSeconds(ReconnectAfterMs / 1000);
+            //Connect();
         }
 
         public void Disconnect(Action callback, CloseStatusCode code = CloseStatusCode.NoStatus, string reason = null)
@@ -104,9 +100,6 @@ namespace PhoenixChannels
         private void OnConnOpen(object sender, EventArgs e)
         {
             FlushSendBuffer();
-            _reconnectTimer.Stop();
-            _heartbeatTimer.Stop();
-            _heartbeatTimer.Start();
 
             foreach (var callback in _openCallbacks)
             {
@@ -117,10 +110,7 @@ namespace PhoenixChannels
         private void OnConnClose(object sender, CloseEventArgs e)
         {
             TriggerChanError();
-            _reconnectTimer.Stop();
-            _heartbeatTimer.Stop();
 
-            //_reconnectTimer.Start();
             foreach (var callback in _closeCallbacks) callback(e);
         }
 
@@ -153,10 +143,14 @@ namespace PhoenixChannels
             _channels = System.Linq.Enumerable.ToList(_channels.Where(c => !c.IsMember(chan.Topic)));
         }
 
-        public Channel Chan(string topic, Payload payload)
+        public Channel AddChannel(string topic, Payload payload)
         {
-            var chan = new Channel(topic, payload, this);
+            var chan = gameObject.AddComponent<Channel>();
+            chan.Topic = topic;
+            chan.Payload = payload;
+            chan.Socket = this;
             _channels.Add(chan);
+
             return chan;
         }
 
