@@ -1,5 +1,5 @@
 # Unity3dPhoenixClient
-You can use channels on Phoenix Framework via Unity3d
+The client library for using channels of [Phoenix Framework](http://www.phoenixframework.org/docs/channels) via [Unity3d](http://unity3d.com/)
 
 ## Requirements
 - Unity3d 5.3 or higher (used `UnityEngine.JsonUtility`)
