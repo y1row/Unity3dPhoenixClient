@@ -9,24 +9,22 @@ namespace PhoenixChannels
 {
     public class Socket : MonoBehaviour
     {
-        private IList<Action> _openCallbacks;
-        private IList<Action<CloseEventArgs>> _closeCallbacks;
-        private IList<Action<ErrorEventArgs>> _errorCallbacks;
-        private IList<Action<string, string, Payload>> _messageCallbacks;
-        private IList<Channel> _channels;
+        IList<Action> _openCallbacks;
+        IList<Action<CloseEventArgs>> _closeCallbacks;
+        IList<Action<ErrorEventArgs>> _errorCallbacks;
+        IList<Action<string, string, Payload>> _messageCallbacks;
+        IList<Channel> _channels;
+        IList<Action> _sendBuffer;
+        int _ref = 0;
+        WebSocket _conn;
+        Timer _reconnectTimer;
+        Timer _heartbeatTimer;
 
-        private IList<Action> _sendBuffer;
-        private int _ref = 0;
-        private int _heartbeatIntervalMs;
-        private string _endPoint;
+        public string EndPoint = "ws://localhost:4000/socket";
+        public int ReconnectAfterMs = 5000;
+        public int HeartbeatIntervalMs = 30000;
 
-        private WebSocket _conn;
-        private Timer _reconnectTimer;
-        private Timer _heartbeatTimer;
-
-        public int ReconnectAfterMs { get; set; }
-
-        public Socket(string endPoint, int heartbeatIntervalMs = 30000, int reconnectAfterMs = 5000)
+        public void Awake()
         {
             _openCallbacks = new List<Action>();
             _closeCallbacks = new List<Action<CloseEventArgs>>();
@@ -37,20 +35,33 @@ namespace PhoenixChannels
             _sendBuffer = new List<Action>();
             _ref = 0;
 
-            _heartbeatIntervalMs = heartbeatIntervalMs;
-            ReconnectAfterMs = reconnectAfterMs;
-            _endPoint = endPoint;
-
-
             _reconnectTimer = new Timer(ReconnectAfterMs);
             _reconnectTimer.AutoReset = true;
             //_reconnectTimer.Enabled = false;
             _reconnectTimer.Elapsed += (o, e) => Connect();
 
-            _heartbeatTimer = new Timer(_heartbeatIntervalMs);
+            _heartbeatTimer = new Timer(HeartbeatIntervalMs);
             _heartbeatTimer.AutoReset = true;
             //_heartbeatTimer.Enabled = true;
             _heartbeatTimer.Elapsed += (o, e) => SendHeartbeat();
+        }
+
+        public void Start()
+        {
+            Connect();
+        }
+
+        public void Connect()
+        {
+            Disconnect(() =>
+            {
+                _conn = new WebSocket(EndPoint);
+                _conn.OnOpen += OnConnOpen;
+                _conn.OnError += OnConnError;
+                _conn.OnMessage += OnConnMessage;
+                _conn.OnClose += OnConnClose;
+                _conn.Connect();
+            });
         }
 
         public void Disconnect(Action callback, CloseStatusCode code = CloseStatusCode.NoStatus, string reason = null)
@@ -65,20 +76,6 @@ namespace PhoenixChannels
             }
             if (callback != null) callback();
         }
-
-        public void Connect()
-        {
-            Disconnect(() =>
-            {
-                _conn = new WebSocket(_endPoint);
-                _conn.OnOpen += OnConnOpen;
-                _conn.OnError += OnConnError;
-                _conn.OnMessage += OnConnMessage;
-                _conn.OnClose += OnConnClose;
-                _conn.Connect();
-            });
-        }
-
 
         public Socket OnOpen(Action callback)
         {
